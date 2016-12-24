@@ -98,7 +98,9 @@ func runQuery(query, folder, typeFormat string) error {
 		return err
 	}
 
-	runtime.Run(ast, &typeFormat)
+	if err := runtime.Run(ast, &typeFormat); err != nil {
+		return err
+	}
 
 	return nil
 }

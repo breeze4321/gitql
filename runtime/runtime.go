@@ -74,25 +74,29 @@ func throwRuntimeError(message string, code uint8) *RuntimeError {
 }
 
 // =========================== Runtime
-func Run(n *parser.NodeProgram, typeFormat *string) {
+func Run(n *parser.NodeProgram, typeFormat *string) error {
 	builder = GetGitBuilder(n.Path)
 	visitor := new(RuntimeVisitor)
 	err := visitor.Visit(n)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 	var tableData *TableData
 
 	switch findWalkType(n) {
 	case WALK_COMMITS:
-		tableData = walkCommits(n, visitor)
+		tableData, err = walkCommits(n, visitor)
 		break
 	case WALK_REFERENCES:
-		tableData = walkReferences(n, visitor)
+		tableData, err = walkReferences(n, visitor)
 		break
 	case WALK_REMOTES:
-		tableData = walkRemotes(n, visitor)
+		tableData, err = walkRemotes(n, visitor)
 		break
+	}
+
+	if err != nil {
+		return err
 	}
 
 	if *typeFormat == "json" {
@@ -100,6 +104,8 @@ func Run(n *parser.NodeProgram, typeFormat *string) {
 	} else {
 		printTable(tableData)
 	}
+
+	return nil
 }
 
 func findWalkType(n *parser.NodeProgram) uint8 {
@@ -127,7 +133,6 @@ func printTable(tableData *TableData) {
 func printJson(tableData *TableData) error {
 	res, err := json.Marshal(tableData.rows)
 	if err != nil {
-		log.Fatalln(err)
 		return throwRuntimeError(fmt.Sprintf("Json error:'%s'", err), 0)
 	} else {
 		fmt.Println(string(res))
@@ -135,9 +140,9 @@ func printJson(tableData *TableData) error {
 	return nil
 }
 
-func orderTable(rows []tableRow, order *parser.NodeOrder) []tableRow {
+func orderTable(rows []tableRow, order *parser.NodeOrder) ([]tableRow, error) {
 	if order == nil {
-		return rows
+		return rows, nil
 	}
 	// We will use parser.NodeGreater.Assertion(A, B) to know if
 	// A > B and then switch their positions.
@@ -158,7 +163,7 @@ func orderTable(rows []tableRow, order *parser.NodeOrder) []tableRow {
 	table := key
 	err := builder.UseFieldFromTable(field, table)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 
 	for i, row := range rows {
@@ -171,7 +176,7 @@ func orderTable(rows []tableRow, order *parser.NodeOrder) []tableRow {
 		}
 	}
 
-	return rows
+	return rows, nil
 }
 
 func metadata(identifier string) string {
